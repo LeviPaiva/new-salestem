@@ -1,8 +1,7 @@
 [
     {
       "id": 1,
-      "Empresa": "Arcelor",
-      "Endereço": "Rua seu zé, numero 3",
+      "nome": "Arcelor",
       "idade": 25,
       "email": "joao@Arcelor.com",
       "editavel": false,

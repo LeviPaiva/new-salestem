@@ -1,32 +1,21 @@
 <template>
   <div class="left">
-    <h1>Venda</h1>
-
-
+    <h1>Vendas</h1>
   </div>
 
   <div class="table-data">
-
     <div class="add-row">
       <button @click="toggleAdicionarLinha" class="add-row-button">Adicionar Linha</button>
     </div>
     <table class="table">
       <thead>
         <tr>
-          <th>Nome</th>
-          <th>Idade</th>
-          <th>E-mail</th>
+          <th v-for="(column, index) in columns" :key="index">{{ column }}</th>
           <th>Ações</th>
         </tr>
         <tr v-if="adicionarLinhaVisivel">
-          <td>
-            <input v-model="novoItem.nome" class="input-field" />
-          </td>
-          <td>
-            <input v-model="novoItem.idade" class="input-field" />
-          </td>
-          <td>
-            <input v-model="novoItem.email" class="input-field" />
+          <td v-for="(column, index) in columns" :key="index">
+            <input v-model="novoItem[column]" class="input-field" />
           </td>
           <td>
             <button @click="adicionarLinha" class="add-button">Adicionar</button>
@@ -35,21 +24,13 @@
       </thead>
       <tbody>
         <tr v-for="(item, index) in displayedItems" :key="item.id" :class="{ 'row-editing': item.editavel }">
-          <td>
-            <input v-model="item.nome" :disabled="!item.editavel" class="input-field" />
-          </td>
-          <td>
-            <input v-model="item.idade" :disabled="!item.editavel" class="input-field" />
-          </td>
-          <td>
-            <input v-model="item.email" :disabled="!item.editavel" class="input-field" />
+          <td v-for="(column, colIndex) in columns" :key="colIndex">
+            <input v-model="item[column]" :disabled="!item.editavel" class="input-field" />
           </td>
           <td>
             <template v-if="!item.editavel">
               <button @click="editarItem(index)" class="edit-button">Editar</button>
-              <!-- <td> -->
               <button @click="removerItem(item)" class="remove-button">Remover</button>
-              <!-- </td> -->
             </template>
             <template v-else>
               <button @click="salvarItem(item)" class="save-button">Salvar</button>
@@ -65,7 +46,6 @@
       <span>Página {{ currentPage }} de {{ totalPages }}</span>
       <button @click="nextPage" :disabled="currentPage === totalPages">Próxima</button>
     </div>
-
   </div>
 </template>
 
@@ -76,11 +56,13 @@ import jsonData from './VendaData.json'; // Importar o arquivo JSON com os dados
 export default defineComponent({
   data() {
     return {
-      items: jsonData, // Atribuir os dados do arquivo JSON à propriedade "items"
-      itemsPerPage: 5, // Número de itens exibidos por página
-      currentPage: 1, // Página atual
-      adicionarLinhaVisivel: false, // Indica se o formulário para adicionar nova linha está visível
-      novoItem: { nome: '', idade: '', email: '', editavel: false }, // Novo item a ser adicionado
+      items: [],
+      itemsPerPage: 5,
+      currentPage: 1,
+      adicionarLinhaVisivel: false,
+      novoItem: {},
+      columns: [],
+      linhasEmEdicao: [], 
     };
   },
   computed: {
@@ -93,24 +75,79 @@ export default defineComponent({
       return Math.ceil(this.items.length / this.itemsPerPage);
     },
   },
+  created() {
+    const dadosLocalStorage = localStorage.getItem('tabelaDados');
+    if (dadosLocalStorage) {
+      this.items = JSON.parse(dadosLocalStorage);
+    } else {
+      this.items = jsonData;
+    }
+
+    if (this.items.length > 0) {
+      this.columns = Object.keys(this.items[0]).filter((column) => column !== 'id' && column !== 'editavel' && column !== 'copia');
+    }
+  },
   methods: {
+    salvarLocalStorage() {
+      localStorage.setItem('tabelaDados', JSON.stringify(this.items));
+    },
     editarItem(index: number) {
       const realIndex = (this.currentPage - 1) * this.itemsPerPage + index;
       this.items[realIndex].editavel = true;
-      this.items[realIndex].copia = { ...this.items[realIndex] }; // Faz uma cópia do item antes da edição
+      this.linhasEmEdicao.push(this.items[realIndex]); // Armazena o objeto da linha em edição
     },
     removerItem(item) {
       const index = this.items.indexOf(item);
       this.items.splice(index, 1);
+      this.salvarLocalStorage();
+
+      const linhasEmEdicaoSalvas = [...this.linhasEmEdicao]; // Faz uma cópia do array linhasEmEdicao
+    this.linhasEmEdicao = []; // Limpa o array linhasEmEdicao
+
+    this.items.forEach((linha) => {
+      linha.editavel = false; // Desabilita a edição em todas as linhas
+    });
+    this.salvarLocalStorage();
+
+    const index2 = linhasEmEdicaoSalvas.findIndex((linha) => linha === item);
+    if (index2 !== -1) {
+      linhasEmEdicaoSalvas.splice(index2, 1); // Remove a linha clicada da array linhasEmEdicaoSalvas
+    }
+
+    linhasEmEdicaoSalvas.forEach((linha) => {
+      linha.editavel = true; // Habilita a edição novamente apenas nas linhas salvas
+    });
+
     },
     salvarItem(item: any) {
-      item.editavel = false;
-      item.copia = {}; // Limpa a cópia após salvar as alterações
+      const linhasEmEdicaoSalvas = [...this.linhasEmEdicao]; // Faz uma cópia do array linhasEmEdicao
+    this.linhasEmEdicao = []; // Limpa o array linhasEmEdicao
+
+    this.items.forEach((linha) => {
+      linha.editavel = false; // Desabilita a edição em todas as linhas
+    });
+    this.salvarLocalStorage();
+
+    const index = linhasEmEdicaoSalvas.findIndex((linha) => linha === item);
+    if (index !== -1) {
+      linhasEmEdicaoSalvas.splice(index, 1); // Remove a linha clicada da array linhasEmEdicaoSalvas
+    }
+
+    linhasEmEdicaoSalvas.forEach((linha) => {
+      linha.editavel = true; // Habilita a edição novamente apenas nas linhas salvas
+    });
+
     },
     cancelarEdicao(item: any) {
-      Object.assign(item, item.copia); // Restaura o item para o estado original
+      
       item.editavel = false;
-      item.copia = {}; // Limpa a cópia
+      item.editavel = false;
+
+const index = this.linhasEmEdicao.findIndex((linha) => linha === item);
+if (index !== -1) {
+  this.linhasEmEdicao.splice(index, 1); // Remove a linha da array linhasEmEdicaoSalvas
+}
+
     },
     previousPage() {
       if (this.currentPage > 1) {
@@ -129,14 +166,16 @@ export default defineComponent({
       const id = this.items.length + 1;
       const novoItem = { ...this.novoItem, id, editavel: false };
       this.items.push(novoItem);
-      this.novoItem = { nome: '', idade: '', email: '', editavel: false };
+      this.novoItem = this.columns.reduce((acc, column) => {
+        acc[column] = '';
+        return acc;
+      }, {});
       this.adicionarLinhaVisivel = false;
+      this.salvarLocalStorage();
     },
   },
 });
 </script>
-
-
 
 <style scoped>
 .table {
@@ -220,9 +259,7 @@ td {
 .add-row {
   display: flex;
   justify-content: flex-end;
-  /* Alinha o botão à direita da div */
   margin: 16px;
-  /* Adiciona espaço abaixo da div */
 }
 
 .left {
